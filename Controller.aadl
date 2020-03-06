@@ -1,4 +1,43 @@
 package Controller
 public
+	system Scooter_Controller
+		
+	end Scooter_Controller;
 	
+	process speed_controller_pr
+		
+	end speed_controller_pr;
+	
+	process power_manager_pr
+		
+	end power_manager_pr;
+	
+	process data_processor_pr
+	
+	end data_processor_pr;
+	
+	process speed_display_pr
+		
+	end speed_display_pr;
+	
+	device accelerator
+		
+	end accelerator;
+	
+	device motor
+		
+	end motor;
+	
+	device battery
+		
+	end battery;
+	
+	device break
+		
+	end break; 
+	
+	device speedometer
+		
+	end speedometer;
+		
 end Controller;
