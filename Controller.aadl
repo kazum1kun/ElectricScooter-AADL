@@ -4,40 +4,115 @@ public
 		
 	end Scooter_Controller;
 	
-	process speed_controller_pr
+	system implementation Scooter_Controller.i
+		subcomponents
+			speed_ctrl: process speed_controller_pr.i;
+			power_mgr: process power_manager_pr.i;
+			data_processor: process data_processor_pr.i;
+			accel_dev: device accel_handle;
+			motor_dev: device battery;
+			brake_dev: device brake;
+			speedo_dev: device speedometer;
+			
 		
+			
+	end Scooter_Controller.i;
+	
+	process speed_controller_pr
+		features
+			power_ctrl_out: out data port;
+			motor_dev_out: out event data port;
+			brake_dev_out: out event port;
+			agg_data_in: in data port;
+		flows
+			motor_source: flow source motor_dev_out;
+			brake_source: flow source brake_dev_out;
+			power_ctrl_source: flow source power_ctrl_out;
+			agg_data_sink: flow sink agg_data_in;
 	end speed_controller_pr;
 	
-	process power_manager_pr
+	process implementation speed_controller_pr.i
 		
+	end speed_controller_pr.i;
+	
+	process power_manager_pr
+		features
+			battery_ctrl_source: out event data port;
+			power_ctrl_sink: in data port;
+		flows
+			power_ctrl_path: flow path power_ctrl_sink -> battery_ctrl_source;
 	end power_manager_pr;
 	
-	process data_processor_pr
+	process implementation power_manager_pr.i
+		
+	end power_manager_pr.i;
 	
+	process data_processor_pr
+		features
+			speed_in: in data port;
+			battery_level_in: in data port;
+			motor_rpm_in: in data port;
+			accel_level_in: in data port;
+			agg_ctrl_out: out event data port;
+		flows
+			speed_sink: flow sink speed_in;
+			battery_level_sink: flow sink battery_level_in;
+			motor_rpm_sink: flow sink motor_rpm_in;
+			accel_level_sink: flow sink accel_level_in;
+			agg_ctrl_source: flow source agg_ctrl_out;
 	end data_processor_pr;
 	
-	process speed_display_pr
-		
-	end speed_display_pr;
+	process implementation data_processor_pr.i
 	
-	device accelerator
-		
-	end accelerator;
+	end data_processor_pr.i;
+	
+	device accel_handle
+		features
+			accel_level_out: out data port;
+			main_bus: requires bus access scooter_info.i;
+		flows
+			accel_level_source: flow source accel_level_out;
+	end accel_handle;
 	
 	device motor
-		
+		features
+			motor_rpm_out: out data port;
+			motor_rpm_ctrl: in data port;
+			main_bus: requires bus access scooter_info.i;
+		flows
+			motor_rpm_source: flow source motor_rpm_out;
+			motor_rpm_ctrl_sink: flow sink motor_rpm_ctrl;
 	end motor;
 	
 	device battery
-		
+		features
+			battery_level_out: out data port;
+			battery_output_ctrl: in data port;
+			main_bus: requires bus access scooter_info.i;
+		flows
+			battery_level_source: flow source battery_level_out;
+			battery_output_ctrl_sink: flow sink battery_output_ctrl;
 	end battery;
 	
-	device break
-		
-	end break; 
+	device brake
+		features
+			break_ctrl: in event port;
+			main_bus: requires bus access scooter_info.i;
+		flows
+			break_ctrl_sink: flow sink break_ctrl;
+	end brake; 
 	
 	device speedometer
-		
+		features
+			speed_out: out data port;
+			main_bus: requires bus access scooter_info.i;
+		flows
+			speed_source: flow source speed_out;
 	end speedometer;
 		
+	bus scooter_info
+	end scooter_info;
+	
+	bus implementation scooter_info.i
+	end scooter_info.i;
 end Controller;
