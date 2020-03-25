@@ -20,8 +20,9 @@ public
 			motor_dp_data: port motor_dev.motor_rpm_out -> data_processor.motor_rpm_in;
 			battery_dp_data: port battery_dev.battery_level_out -> data_processor.battery_level_in;
 			
-			data_speed_eventdata: port data_processor.agg_ctrl_out -> speed_ctrl.agg_ctrl_in;
-			speed_power_eventdata: port speed_ctrl.power_ctrl_out -> power_mgr.power_ctrl_in;
+			dp_speed_eventdata: port data_processor.agg_data_out -> speed_ctrl.agg_data_in;
+			speed_power_eventdata: port speed_ctrl.voltage_ctrl_out -> power_mgr.power_ctrl_in;
+			dp_power_data: port data_processor.battery_level_out -> power_mgr.battery_level_in;
 			
 			speed_motor_eventdata: port speed_ctrl.motor_dev_out -> motor_dev.motor_rpm_ctrl;
 			speed_brake_event: port speed_ctrl.brake_dev_out -> brake_dev.break_ctrl;
@@ -32,9 +33,10 @@ public
 			motor_dp_rpm: end to end flow motor_dev.motor_rpm_source -> motor_dp_data -> data_processor.motor_rpm_sink;
 			accel_dp_acclevel: end to end flow accel_dev.accel_level_source -> accel_dp_data -> data_processor.accel_level_sink;
 			
-			dp_speed_ctrl: end to end flow data_processor.agg_ctrl_source -> data_speed_eventdata -> speed_ctrl.agg_ctrl_sink;
+			dp_speed_ctrl: end to end flow data_processor.agg_data_source -> dp_speed_eventdata -> speed_ctrl.agg_data_sink;
 			speed_motor_ctrl: end to end flow speed_ctrl.power_ctrl_source -> speed_power_eventdata -> power_mgr.power_ctrl_path -> 
 												power_battery_eventdata -> battery_dev.battery_output_ctrl_sink;
+			dp_power_battlevel: end to end flow data_processor.battery_level_source -> dp_power_data -> power_mgr.battery_level_sink;
 			
 			speed_motor_rpm: end to end flow speed_ctrl.motor_source -> speed_motor_eventdata -> motor_dev.motor_rpm_ctrl_sink;
 			speed_brake_ctrl: end to end flow speed_ctrl.brake_source -> speed_brake_event -> brake_dev.break_ctrl_sink;
@@ -42,26 +44,74 @@ public
 	
 	process speed_controller_pr
 		features
-			power_ctrl_out: out event data port;
+			voltage_ctrl_out: out event data port;
 			motor_dev_out: out event data port;
 			brake_dev_out: out event port;
-			agg_ctrl_in: in event data port;
+			agg_data_in: in data port;
 		flows
 			motor_source: flow source motor_dev_out;
 			brake_source: flow source brake_dev_out;
-			power_ctrl_source: flow source power_ctrl_out;
-			agg_ctrl_sink: flow sink agg_ctrl_in;
+			power_ctrl_source: flow source voltage_ctrl_out;
+			agg_data_sink: flow sink agg_data_in;
 	end speed_controller_pr;
 	
 	process implementation speed_controller_pr.i
-		
+		subcomponents
+			analyze_th: thread analyze_data_th;
+			regulate_th: thread regulate_speed_th;
+			power_th: thread adjust_power_th;
+		connections
+			data_ext_analyze: port agg_data_in -> analyze_th.agg_data_in;
+			analyze_regulate_speed: port analyze_th.speed_data_out -> regulate_th.speed_data_in;
+			analyze_regulate_accel: port analyze_th.accel_level_out -> regulate_th.accel_level_in;
+			regulate_motor_ext: port regulate_th.motor_rpm_ctrl -> motor_dev_out;
+			regulate_brake_ext: port regulate_th.brake_ctrl -> brake_dev_out;
+			regulate_power_ext: port regulate_th.power_adjust -> power_th.power_adjust_in;
+			power_voltage_ext: port power_th.voltage_adjust_out -> voltage_ctrl_out;
+		flows
+			fff: flow sink 
 	end speed_controller_pr.i;
+	
+	thread analyze_data_th
+		features
+			agg_data_in: in data port;
+			speed_data_out: out data port;
+			accel_level_out: out data port;
+		flows
+			data_in_analyze_speed_path: flow path agg_data_in -> speed_data_out;
+			data_inanalyze_accel_path: flow path agg_data_in -> accel_level_out;
+	end analyze_data_th;
+	
+	thread regulate_speed_th
+		features
+			speed_data_in: in data port;
+			accel_level_in: in data port;
+			power_adjust: out event data port;
+			motor_rpm_ctrl: out event data port;
+			brake_ctrl: out event port;
+		flows
+			speed_data_sink: flow sink speed_data_in;
+			accel_level_sink: flow sink accel_level_in;
+			motor_rmp_source: flow source motor_rpm_ctrl;
+			brake_ctrl_source: flow source brake_ctrl;
+			power_adjust_source: flow source power_adjust;
+	end regulate_speed_th;
+	
+	thread adjust_power_th
+		features
+			power_adjust_in: in event data port;
+			voltage_adjust_out: out event data port;
+		flows
+			power_voltage_path: flow path power_adjust_in -> voltage_adjust_out;
+	end adjust_power_th;
 	
 	process power_manager_pr
 		features
+			battery_level_in: in data port;
 			battery_ctrl_out: out event data port;
 			power_ctrl_in: in event data port;
 		flows
+			battery_level_sink: flow sink battery_level_in;
 			power_ctrl_path: flow path power_ctrl_in -> battery_ctrl_out;
 	end power_manager_pr;
 	
@@ -75,13 +125,15 @@ public
 			battery_level_in: in data port;
 			motor_rpm_in: in data port;
 			accel_level_in: in data port;
-			agg_ctrl_out: out event data port;
+			agg_data_out: out data port;
+			battery_level_out: out data port;
 		flows
 			speed_sink: flow sink speed_in;
 			battery_level_sink: flow sink battery_level_in;
 			motor_rpm_sink: flow sink motor_rpm_in;
 			accel_level_sink: flow sink accel_level_in;
-			agg_ctrl_source: flow source agg_ctrl_out;
+			agg_data_source: flow source agg_data_out;
+			battery_level_source: flow source battery_level_out;
 	end data_processor_pr;
 	
 	process implementation data_processor_pr.i
