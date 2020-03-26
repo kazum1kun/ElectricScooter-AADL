@@ -66,10 +66,18 @@ public
 			analyze_regulate_accel: port analyze_th.accel_level_out -> regulate_th.accel_level_in;
 			regulate_motor_ext: port regulate_th.motor_rpm_ctrl -> motor_dev_out;
 			regulate_brake_ext: port regulate_th.brake_ctrl -> brake_dev_out;
-			regulate_power_ext: port regulate_th.power_adjust -> power_th.power_adjust_in;
+			regulate_power_eventdata: port regulate_th.power_adjust -> power_th.power_adjust_in;
 			power_voltage_ext: port power_th.voltage_adjust_out -> voltage_ctrl_out;
 		flows
-			fff: flow sink 
+			agg_data_sink: flow sink agg_data_in -> data_ext_analyze -> analyze_th.data_in_analyze_speed_path -> 
+											analyze_regulate_speed -> regulate_th.speed_data_sink;
+			agg_data_sink: flow sink agg_data_in -> data_ext_analyze -> analyze_th.data_inanalyze_accel_path -> 
+											analyze_regulate_accel -> regulate_th.accel_level_sink;
+			motor_source: flow source regulate_th.motor_rpm_source -> regulate_motor_ext -> motor_dev_out;
+			brake_source: flow source regulate_th.brake_ctrl_source -> regulate_brake_ext -> brake_dev_out;
+			power_ctrl_source: flow source regulate_th.power_adjust_source -> regulate_power_eventdata -> power_th.power_voltage_path
+											-> power_voltage_ext -> voltage_ctrl_out;
+			
 	end speed_controller_pr.i;
 	
 	thread analyze_data_th
@@ -92,7 +100,7 @@ public
 		flows
 			speed_data_sink: flow sink speed_data_in;
 			accel_level_sink: flow sink accel_level_in;
-			motor_rmp_source: flow source motor_rpm_ctrl;
+			motor_rpm_source: flow source motor_rpm_ctrl;
 			brake_ctrl_source: flow source brake_ctrl;
 			power_adjust_source: flow source power_adjust;
 	end regulate_speed_th;
