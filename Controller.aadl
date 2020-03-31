@@ -1,7 +1,8 @@
 package Controller
 public
+	
+	
 	system Scooter_Controller
-		
 	end Scooter_Controller;
 	
 	system implementation Scooter_Controller.i
@@ -20,7 +21,7 @@ public
 			motor_dp_data: port motor_dev.motor_rpm_out -> data_processor.motor_rpm_in;
 			battery_dp_data: port battery_dev.battery_level_out -> data_processor.battery_level_in;
 			
-			dp_speed_eventdata: port data_processor.agg_data_out -> speed_ctrl.agg_data_in;
+			dp_agg_data: port data_processor.agg_data_out -> speed_ctrl.agg_data_in;
 			speed_power_eventdata: port speed_ctrl.battery_ctrl_out -> power_mgr.battery_ctrl_in;
 			dp_power_data: port data_processor.battery_level_out -> power_mgr.battery_level_in;
 			
@@ -28,15 +29,17 @@ public
 			speed_brake_event: port speed_ctrl.brake_dev_out -> brake_dev.break_ctrl;
 			power_battery_eventdata: port power_mgr.voltage_ctrl_out -> battery_dev.battery_output_ctrl;
 		flows
-			speedo_dp_speed: end to end flow speedo_dev.speed_source -> speedo_dp_data -> data_processor.speed_sink;
-			batt_dp_battlevel: end to end flow battery_dev.battery_level_source -> battery_dp_data -> data_processor.battery_level_sink;
-			motor_dp_rpm: end to end flow motor_dev.motor_rpm_source -> motor_dp_data -> data_processor.motor_rpm_sink;
-			accel_dp_acclevel: end to end flow accel_dev.accel_level_source -> accel_dp_data -> data_processor.accel_level_sink;
-			
-			dp_speed_ctrl: end to end flow data_processor.agg_data_source -> dp_speed_eventdata -> speed_ctrl.agg_data_sink;
+			speedo_sc_speed: end to end flow speedo_dev.speed_source -> speedo_dp_data -> data_processor.speed_path -> 
+											dp_agg_data -> speed_ctrl.agg_data_sink;
+			motor_sc_rpm: end to end flow motor_dev.motor_rpm_source -> motor_dp_data -> data_processor.motor_rpm_path ->
+											dp_agg_data -> speed_ctrl.agg_data_sink;
+			accel_sc_acclevel: end to end flow accel_dev.accel_level_source -> accel_dp_data -> data_processor.accel_level_path ->
+											dp_agg_data -> speed_ctrl.agg_data_sink;
+			batt_bc_battlevel: end to end flow battery_dev.battery_level_source -> battery_dp_data -> data_processor.battery_level_path ->
+											dp_power_data -> power_mgr.battery_level_sink;
+											
 			speed_motor_ctrl: end to end flow speed_ctrl.battery_ctrl_source -> speed_power_eventdata -> power_mgr.battery_ctrl_path -> 
 												power_battery_eventdata -> battery_dev.battery_output_ctrl_sink;
-			dp_power_battlevel: end to end flow data_processor.battery_level_source -> dp_power_data -> power_mgr.battery_level_sink;
 			speed_motor_rpm: end to end flow speed_ctrl.motor_source -> speed_motor_eventdata -> motor_dev.motor_rpm_ctrl_sink;
 			speed_brake_ctrl: end to end flow speed_ctrl.brake_source -> speed_brake_event -> brake_dev.break_ctrl_sink;
 	end Scooter_Controller.i;
@@ -153,19 +156,46 @@ public
 			agg_data_out: out data port;
 			battery_level_out: out data port;
 		flows
-			speed_sink: flow sink speed_in;
-			battery_level_sink: flow sink battery_level_in;
-			motor_rpm_sink: flow sink motor_rpm_in;
-			accel_level_sink: flow sink accel_level_in;
-			agg_data_source: flow source agg_data_out;
-			battery_level_source: flow source battery_level_out;
+			speed_path: flow path speed_in -> agg_data_out;
+			battery_level_path: flow path battery_level_in -> battery_level_out;
+			motor_rpm_path: flow path motor_rpm_in -> agg_data_out;
+			accel_level_path: flow path accel_level_in -> agg_data_out;
 	end data_processor_pr;
 	
 	process implementation data_processor_pr.i
-	
+		subcomponents
+			agg_data_th: thread aggregate_data_th;
+		connections
+			speed_ext_speed: port speed_in -> agg_data_th.speed_in;
+			batt_level_ext_batt_level: port battery_level_in -> agg_data_th.battery_level_in;
+			motor_rpm_ext_motor_rpm: port motor_rpm_in -> agg_data_th.motor_rpm_in;
+			accel_level_ext_accel_level: port accel_level_in -> agg_data_th.accel_level_in;
+			agg_data_agg_data_ext: port agg_data_th.agg_data_out -> agg_data_out;
+			batt_level_batt_level_ext: port agg_data_th.battery_level_out -> battery_level_out;
+		flows
+			speed_path: flow path speed_in -> speed_ext_speed -> agg_data_th.speed_path -> agg_data_agg_data_ext -> agg_data_out;
+			battery_level_path: flow path battery_level_in -> batt_level_ext_batt_level -> agg_data_th.battery_level_path ->
+										batt_level_batt_level_ext -> battery_level_out;
+			motor_rpm_path: flow path motor_rpm_in -> motor_rpm_ext_motor_rpm -> agg_data_th.motor_rpm_path -> 
+										agg_data_agg_data_ext -> agg_data_out;
+			accel_level_path: flow path accel_level_in -> accel_level_ext_accel_level -> agg_data_th.accel_level_path -> 
+										agg_data_agg_data_ext -> agg_data_out;
 	end data_processor_pr.i;
 	
-	
+	thread aggregate_data_th
+		features
+			speed_in: in data port;
+			battery_level_in: in data port;
+			motor_rpm_in: in data port;
+			accel_level_in: in data port;
+			agg_data_out: out data port;
+			battery_level_out: out data port;
+		flows
+			speed_path: flow path speed_in -> agg_data_out;
+			battery_level_path: flow path battery_level_in -> battery_level_out;
+			motor_rpm_path: flow path motor_rpm_in -> agg_data_out;
+			accel_level_path: flow path accel_level_in -> agg_data_out;
+	end aggregate_data_th;
 	
 	device accel_handle
 		features
