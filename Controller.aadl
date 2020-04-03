@@ -1,7 +1,5 @@
 package Controller
 public
-	
-	
 	system Scooter_Controller
 	end Scooter_Controller;
 	
@@ -27,7 +25,7 @@ public
 			
 			speed_motor_eventdata: port speed_ctrl.motor_dev_out -> motor_dev.motor_rpm_ctrl;
 			speed_brake_event: port speed_ctrl.brake_dev_out -> brake_dev.break_ctrl;
-			power_battery_eventdata: port power_mgr.voltage_ctrl_out -> battery_dev.battery_output_ctrl;
+			power_battery_eventdata: port power_mgr.watt_ctrl_out -> battery_dev.battery_output_ctrl;
 		flows
 			speedo_sc_speed: end to end flow speedo_dev.speed_source -> speedo_dp_data -> data_processor.speed_path -> 
 											dp_agg_data -> speed_ctrl.agg_data_sink;
@@ -69,7 +67,7 @@ public
 			regulate_motor_ext: port regulate_th.motor_rpm_ctrl -> motor_dev_out;
 			regulate_brake_ext: port regulate_th.brake_ctrl -> brake_dev_out;
 			regulate_power_eventdata: port regulate_th.power_adjust -> power_th.power_adjust_in;
-			power_battery_ext: port power_th.voltage_adjust_out -> battery_ctrl_out;
+			power_battery_ext: port power_th.watt_adjust_out -> battery_ctrl_out;
 		flows
 			agg_data_sink: flow sink agg_data_in -> data_ext_analyze -> analyze_th.data_in_analyze_speed_path -> 
 											analyze_regulate_speed -> regulate_th.speed_data_sink;
@@ -77,7 +75,7 @@ public
 											analyze_regulate_accel -> regulate_th.accel_level_sink;
 			motor_source: flow source regulate_th.motor_rpm_source -> regulate_motor_ext -> motor_dev_out;
 			brake_source: flow source regulate_th.brake_ctrl_source -> regulate_brake_ext -> brake_dev_out;
-			battery_ctrl_source: flow source regulate_th.power_adjust_source -> regulate_power_eventdata -> power_th.power_voltage_path
+			battery_ctrl_source: flow source regulate_th.power_adjust_source -> regulate_power_eventdata -> power_th.power_watt_path
 											-> power_battery_ext -> battery_ctrl_out;
 	end speed_controller_pr.i;
 	
@@ -109,19 +107,19 @@ public
 	thread adjust_power_th
 		features
 			power_adjust_in: in event data port;
-			voltage_adjust_out: out event data port;
+			watt_adjust_out: out event data port;
 		flows
-			power_voltage_path: flow path power_adjust_in -> voltage_adjust_out;
+			power_watt_path: flow path power_adjust_in -> watt_adjust_out;
 	end adjust_power_th;
 	
 	process power_manager_pr
 		features
 			battery_level_in: in data port;
-			voltage_ctrl_out: out event data port;
+			watt_ctrl_out: out event data port;
 			battery_ctrl_in: in event data port;
 		flows
 			battery_level_sink: flow sink battery_level_in;
-			battery_ctrl_path: flow path battery_ctrl_in -> voltage_ctrl_out;
+			battery_ctrl_path: flow path battery_ctrl_in -> watt_ctrl_out;
 	end power_manager_pr;
 	
 	process implementation power_manager_pr.i
@@ -130,21 +128,21 @@ public
 		connections
 			batt_level_ext_batt_ctrl: port battery_level_in -> batt_ctrl_th.battery_level_in;
 			batt_ctrl_ext_batt_ctrl: port battery_ctrl_in -> batt_ctrl_th.battery_ctrl_in;
-			batt_ctrl_voltage_ext: port batt_ctrl_th.voltage_ctrl_out -> voltage_ctrl_out;
+			batt_ctrl_watt_ext: port batt_ctrl_th.watt_ctrl_out -> watt_ctrl_out;
 		flows
 			battery_level_sink: flow sink battery_level_in -> batt_level_ext_batt_ctrl -> batt_ctrl_th.battery_level_sink;
 			battery_ctrl_path: flow path battery_ctrl_in -> batt_ctrl_ext_batt_ctrl -> batt_ctrl_th.battery_ctrl_path ->
-									batt_ctrl_voltage_ext -> voltage_ctrl_out;	
+									batt_ctrl_watt_ext -> watt_ctrl_out;	
 	end power_manager_pr.i;	
 	
 	thread battery_ctrl_th
 		features
 			battery_level_in: in data port;
-			voltage_ctrl_out: out event data port;
+			watt_ctrl_out: out event data port;
 			battery_ctrl_in: in event data port;
 		flows
 			battery_level_sink: flow sink battery_level_in;
-			battery_ctrl_path: flow path battery_ctrl_in -> voltage_ctrl_out;
+			battery_ctrl_path: flow path battery_ctrl_in -> watt_ctrl_out;
 	end battery_ctrl_th;
 	
 	process data_processor_pr
