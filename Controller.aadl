@@ -13,22 +13,23 @@ public
 			battery_dev: device battery;
 			brake_dev: device brake;
 			speedo_dev: device speedometer;
+			batt_sensor_dev: device battery_sensor;
 		connections
 			speedo_sc_data: port speedo_dev.speed_out -> speed_ctrl.speed_in;
 			accel_sc_data: port accel_handle_dev.accel_level_out -> speed_ctrl.accel_level_in;
 			brake_handle_sc_data: port brake_handle_dev.brake_level_out -> speed_ctrl.brake_level_in;
-			motor_sc_data: port motor_dev.motor_rpm_out -> speed_ctrl.motor_rpm_in;
-			battery_sc_data: port battery_dev.battery_level_out -> power_mgr.battery_level_in;
+			sc_motor_eventdata: port speed_ctrl.motor_ctrl_out -> motor_dev.motor_ctrl_in;
+			battery_sc_data: port batt_sensor_dev.battery_level_out -> power_mgr.battery_level_in;
 			
 			speed_power_eventdata: port speed_ctrl.battery_ctrl_out -> power_mgr.battery_ctrl_in;
 			speed_brake_event: port speed_ctrl.brake_dev_out -> brake_dev.break_ctrl;
 			power_battery_eventdata: port power_mgr.voltage_ctrl_out -> battery_dev.battery_output_ctrl;
 		flows
 			speedo_sc_speed: end to end flow speedo_dev.speed_source -> speedo_sc_data -> speed_ctrl.speed_sink;
-			motor_sc_rpm: end to end flow motor_dev.motor_rpm_source -> motor_sc_data -> speed_ctrl.motor_rpm_sink;
+			motor_sc_rpm: end to end flow speed_ctrl.motor_ctrl_source -> sc_motor_eventdata -> motor_dev.motor_ctrl_sink;
 			accel_sc_acclevel: end to end flow accel_handle_dev.accel_level_source -> accel_sc_data -> speed_ctrl.accel_level_sink;
 			brake_sc_brakelevel: end to end flow brake_handle_dev.brake_level_source -> brake_handle_sc_data -> speed_ctrl.brake_level_sink;
-			batt_bc_battlevel: end to end flow battery_dev.battery_level_source -> battery_sc_data -> power_mgr.battery_level_sink;
+			batt_bc_battlevel: end to end flow batt_sensor_dev.battery_level_source -> battery_sc_data -> power_mgr.battery_level_sink;
 											
 			speed_motor_ctrl: end to end flow speed_ctrl.battery_ctrl_source -> speed_power_eventdata -> power_mgr.battery_ctrl_path -> 
 												power_battery_eventdata -> battery_dev.battery_output_ctrl_sink;
@@ -40,12 +41,12 @@ public
 			battery_ctrl_out: out event data port;
 			brake_dev_out: out event port;
 			speed_in: in data port;
-			motor_rpm_in: in data port;
+			motor_ctrl_out: out event data port;
 			accel_level_in: in data port;
 			brake_level_in: in data port;
 		flows
 			speed_sink: flow sink speed_in;
-			motor_rpm_sink: flow sink motor_rpm_in;
+			motor_ctrl_source: flow source motor_ctrl_out;
 			accel_level_sink: flow sink accel_level_in;
 			brake_level_sink: flow sink brake_level_in;
 			brake_source: flow source brake_dev_out;
@@ -60,7 +61,7 @@ public
 			speed_ext_regulate_speed: port speed_in -> regulate_th.speed_data_in;
 			accel_ext_regulate_accel: port accel_level_in -> regulate_th.accel_level_in;
 			brake_ext_regulate_brake: port brake_level_in -> regulate_th.brake_level_in;
-			rpm_ext_regulate_rpm: port motor_rpm_in -> regulate_th.motor_rpm_in;
+			motor_ctrl_ext: port regulate_th.motor_ctrl -> motor_ctrl_out;
 			regulate_brake_ext: port regulate_th.brake_ctrl -> brake_dev_out;
 			regulate_power_eventdata: port regulate_th.power_adjust -> power_th.power_adjust_in;
 			power_battery_ext: port power_th.watt_adjust_out -> battery_ctrl_out;
@@ -68,7 +69,7 @@ public
 			speed_sink: flow sink speed_in -> speed_ext_regulate_speed ->  regulate_th.speed_data_sink;
 			accel_level_sink: flow sink accel_level_in -> accel_ext_regulate_accel -> regulate_th.accel_level_sink;
 			brake_level_sink: flow sink brake_level_in -> brake_ext_regulate_brake -> regulate_th.brake_level_sink;
-			motor_rpm_sink: flow sink motor_rpm_in -> rpm_ext_regulate_rpm -> regulate_th.motor_rpm_sink;
+			motor_ctrl_source: flow source regulate_th.motor_ctrl_source -> motor_ctrl_ext -> motor_ctrl_out;
 			brake_source: flow source regulate_th.brake_ctrl_source -> regulate_brake_ext -> brake_dev_out;
 			battery_ctrl_source: flow source regulate_th.power_adjust_source -> regulate_power_eventdata -> power_th.power_watt_path
 											-> power_battery_ext -> battery_ctrl_out;
@@ -80,14 +81,14 @@ public
 			speed_data_in: in data port;
 			accel_level_in: in data port;
 			brake_level_in: in data port;
-			motor_rpm_in: in data port;
 			power_adjust: out event data port;
+			motor_ctrl: out event data port;
 			brake_ctrl: out event port;
 		flows
 			speed_data_sink: flow sink speed_data_in;
 			accel_level_sink: flow sink accel_level_in;
 			brake_level_sink:  flow sink brake_level_in;
-			motor_rpm_sink: flow sink motor_rpm_in;
+			motor_ctrl_source: flow source motor_ctrl;
 			brake_ctrl_source: flow source brake_ctrl;
 			power_adjust_source: flow source power_adjust;
 	end regulate_speed_th;
@@ -151,19 +152,17 @@ public
 	
 	device motor
 		features
-			motor_rpm_out: out data port;
+			motor_ctrl_in: in event data port;
 			main_bus: requires bus access scooter_info.i;
 		flows
-			motor_rpm_source: flow source motor_rpm_out;
+			motor_ctrl_sink: flow sink motor_ctrl_in;
 	end motor;
 	
 	device battery
 		features
-			battery_level_out: out data port;
 			battery_output_ctrl: in event data port;
 			main_bus: requires bus access scooter_info.i;
 		flows
-			battery_level_source: flow source battery_level_out;
 			battery_output_ctrl_sink: flow sink battery_output_ctrl;
 	end battery;
 	
@@ -182,6 +181,14 @@ public
 		flows
 			speed_source: flow source speed_out;
 	end speedometer;
+	
+	device battery_sensor
+		features
+			battery_level_out: out data port;
+			main_bus: requires bus access scooter_info.i;
+		flows
+			battery_level_source: flow source battery_level_out;
+	end battery_sensor;
 		
 	bus scooter_info
 	end scooter_info;
